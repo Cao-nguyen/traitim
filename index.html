@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#050007">
+  <meta name="description" content="Một Thiên Hà Tình Yêu dành cho Nam thần king 12A3 – Chúc mừng Ngày Quốc tế Toilet">
+  <meta property="og:title" content="Thiên Hà Tình Yêu – 12A3">
+  <meta property="og:description" content="Một Thiên Hà Tình Yêu dành cho Nam thần king 12A3">
+  <meta property="og:type" content="website">
+  <title>Thiên Hà Tình Yêu – 12A3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@1,600&family=Montserrat:wght@400;600;700&display=swap">
+  <style>
+/* Layout: toàn màn hình, canvas 3D ở dưới, thẻ mở đầu và thẻ kỷ niệm nổi ở trên */
+:root{
+  --bg:#050007; --ink:#fff1f6; --muted:#d9a3b8; --pink:#ff3d8b; --rose:#ff8fb8; --card:rgba(40,8,26,.72);
+  --display:"Playfair Display",Georgia,serif; --body:"Montserrat",system-ui,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%;margin:0;overflow:hidden;background:var(--bg);color:var(--ink);font-family:var(--body)}
+canvas{display:block;position:fixed;inset:0;touch-action:none}
+.layer{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;transition:opacity .9s ease}
+.layer[hidden]{display:none}
+.layer.off{opacity:0;pointer-events:none}
+#intro{background:radial-gradient(ellipse at 50% 30%,#3a0b26 0%,#12020b 60%,#050007 100%);z-index:5}
+.card{width:min(380px,100%);box-sizing:border-box;padding:36px 28px;text-align:center;border-radius:22px;background:var(--card);border:1px solid rgba(255,143,184,.25);backdrop-filter:blur(14px);box-shadow:0 20px 80px rgba(255,61,139,.22)}
+h1{font:italic 600 clamp(30px,8vw,40px)/1.15 var(--display);margin:0 0 14px;text-wrap:balance}
+h2{font:italic 600 24px/1.2 var(--display);margin:0 0 10px}
+.sub{font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--muted);margin:0 0 28px}
+.card p{font-size:14px;line-height:1.65;color:var(--muted);margin:0 0 22px}
+button{font:600 11px var(--body);letter-spacing:.2em;text-transform:uppercase;color:#fff;border:0;border-radius:99px;padding:14px 26px;cursor:pointer;background:linear-gradient(90deg,#ff3d8b,#ff7aa8);box-shadow:0 6px 24px rgba(255,61,139,.45)}
+button:hover{filter:brightness(1.1)}
+button:focus-visible{outline:2px solid #fff;outline-offset:3px}
+.ghost{background:transparent;border:1px solid rgba(255,143,184,.5);box-shadow:none;color:var(--rose)}
+.beat{font-size:34px;margin-bottom:6px;display:block;animation:beat 1.4s infinite}
+@keyframes beat{0%,100%{transform:scale(1)}15%{transform:scale(1.25)}30%{transform:scale(1)}45%{transform:scale(1.18)}}
+#memory{z-index:4;background:rgba(5,0,7,.55)}
+#hint{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));width:max-content;max-width:calc(100% - 32px);box-sizing:border-box;display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center;padding:12px 20px;border-radius:18px;background:rgba(40,8,26,.7);border:1px solid rgba(255,143,184,.35);backdrop-filter:blur(8px);pointer-events:none;z-index:3;transition:opacity 1s}
+#hint b{font-size:13px;font-weight:600;color:var(--ink);letter-spacing:.02em}
+#hint span{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){.beat{animation:none}}
+</style>
+</head>
+<body>
+
+<canvas id="gl" aria-label="Thiên hà hạt màu hồng với trái tim ở giữa"></canvas>
+
+<div id="intro" class="layer">
+  <div class="card">
+    <span class="beat" aria-hidden="true">♥</span>
+    <h1 id="t-title"></h1>
+    <p class="sub" id="t-sub"></p>
+    <button id="enter">Bấm vào đây để khám phá vũ trụ</button>
+  </div>
+</div>
+
+<div id="memory" class="layer off" hidden>
+  <div class="card" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <span class="beat" aria-hidden="true">♥</span>
+    <h2 id="m-title"></h2>
+    <p id="m-text"></p>
+    <button class="ghost" id="back">Quay lại</button>
+  </div>
+</div>
+
+<div id="hint" style="opacity:0"><b>♥ Bấm vào trái tim nhỏ để hiện câu chúc</b><span>Kéo để xoay · cuộn hoặc chụm để thu phóng</span></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ====== CHỈNH NỘI DUNG Ở ĐÂY ====== */
+const CONFIG = {
+  title: "Một Thiên Hà Tình Yêu Dành Cho “Nam thần king 12A3”",
+  subtitle: "Chúc mừng Ngày Quốc tế Toilet",
+  enter: "Bấm vào đây để khám phá vũ trụ",
+  wishes: ["CHÚC MỪNG NGÀY QUỐC TẾ TOILET","NAM THẦN KING 12A3","HAPPY WORLD TOILET DAY","MẠNH MẼ · TỬ TẾ · TỎA SÁNG","19 · 11","12A3 MÃI ĐỈNH","CẢM ƠN VÌ LUÔN Ở ĐÂY","MEN OF 12A3"],
+  memories: [
+    {title:"Gửi Nam thần king 12A3", text:"Chúc mấy bạn sau này dù ở đâu làm gì cũng đều may mắn, bình an."},
+    {title:"Tập thể 12A3", text:"Chúc tập thể 12A3 chúng ta sẽ ngày càng đoàn kết và yêu thương nhau."},
+    {title:"Năm cuối cấp", text:"Cảm ơn vì những ngày tháng cười đùa, học hành và giúp đỡ lẫn nhau. Kỷ niệm này sẽ mãi ở lại."},
+    {title:"Mãi là 12A3", text:"Dù mai sau mỗi người một hướng, nhưng trái tim 12A3 vẫn luôn đập cùng nhịp. Yêu các bạn nhiều!"}
+  ]
+};
+/* ================================== */
+
+const $ = id => document.getElementById(id);
+$('t-title').textContent = CONFIG.title;
+$('t-sub').textContent = CONFIG.subtitle;
+$('enter').textContent = CONFIG.enter;
+
+const canvas = $('gl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x050007);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 200);
+
+function resize(){
+  renderer.setSize(innerWidth, innerHeight);
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize); resize();
+
+// sprite tròn mềm cho hạt – falloff mềm hơn, không tạo viền trắng cứng
+function dot(){
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d');
+  const r = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  r.addColorStop(0,   'rgba(255,255,255,1)');
+  r.addColorStop(0.2, 'rgba(255,255,255,0.85)');
+  r.addColorStop(0.45,'rgba(255,255,255,0.4)');
+  r.addColorStop(0.7, 'rgba(255,255,255,0.12)');
+  r.addColorStop(1,   'rgba(255,255,255,0)');
+  g.fillStyle = r;
+  g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+const dotTex = dot();
+const addMat = o => new THREE.PointsMaterial(Object.assign({map:dotTex, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, vertexColors:true, sizeAttenuation:true}, o));
+
+/* Thiên hà xoắn ốc */
+const N = innerWidth < 600 ? 22000 : 40000, ARMS = 3, R = 15;
+const gp = new Float32Array(N*3), gc = new Float32Array(N*3);
+const cIn = new THREE.Color('#ff7fb0'), cMid = new THREE.Color('#ff3d8b'), cOut = new THREE.Color('#7a1fd1');
+for(let i=0;i<N;i++){
+  const rad = Math.pow(Math.random(),1.6)*R + .5;
+  const arm = (i%ARMS)/ARMS*Math.PI*2;
+  const spin = rad*0.55;
+  const spread = (Math.random()-.5)*Math.pow(Math.random(),2)*rad*0.9;
+  const a = arm + spin;
+  gp[i*3]   = Math.cos(a)*rad + spread*Math.cos(a+1.57)*.8;
+  gp[i*3+1] = (Math.random()-.5)*0.35*Math.exp(-rad/6);
+  gp[i*3+2] = Math.sin(a)*rad + spread*Math.sin(a+1.57)*.8;
+  const t = rad/R, col = t<.3 ? cIn.clone().lerp(cMid,t/.3) : cMid.clone().lerp(cOut,(t-.3)/.7);
+  col.multiplyScalar(.6+Math.random()*.6);
+  gc.set([col.r,col.g,col.b], i*3);
+}
+const gGeo = new THREE.BufferGeometry();
+gGeo.setAttribute('position', new THREE.BufferAttribute(gp,3));
+gGeo.setAttribute('color', new THREE.BufferAttribute(gc,3));
+const galaxy = new THREE.Points(gGeo, addMat({size:.09}));
+scene.add(galaxy);
+
+/* Hố đen ở tâm */
+const hole = new THREE.Mesh(new THREE.CircleGeometry(.7,48), new THREE.MeshBasicMaterial({color:0x000000}));
+hole.rotation.x = -Math.PI/2; hole.position.y = .02; scene.add(hole);
+
+/* Sao nền */
+const SN = 1800, sp = new Float32Array(SN*3), sc = new Float32Array(SN*3);
+for(let i=0;i<SN;i++){
+  const v = new THREE.Vector3(Math.random()-.5,Math.random()-.5,Math.random()-.5).normalize().multiplyScalar(60+Math.random()*60);
+  sp.set([v.x,v.y,v.z],i*3);
+  const k = .4+Math.random()*.6; sc.set([k,k*.8,k],i*3);
+}
+const sGeo = new THREE.BufferGeometry();
+sGeo.setAttribute('position', new THREE.BufferAttribute(sp,3));
+sGeo.setAttribute('color', new THREE.BufferAttribute(sc,3));
+scene.add(new THREE.Points(sGeo, addMat({size:.5})));
+
+/* Trái tim bằng hạt – đặc, tròn đầy, không viền trắng, giống video */
+const HN = innerWidth < 600 ? 32000 : 48000;
+const hp = new Float32Array(HN*3), hc = new Float32Array(HN*3), hph = new Float32Array(HN), hs = new Float32Array(HN);
+for(let i=0;i<HN;i++){
+  const t = Math.random() * Math.PI * 2;
+  // Công thức trái tim cổ điển
+  const x0 = 16 * Math.pow(Math.sin(t), 3);
+  const y0 = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+  // 18% outline cứng, còn lại fill dày đặc (power > 1 → nhiều hạt ở giữa hơn)
+  const outline = Math.random() < 0.18;
+  let e;
+  if (outline) {
+    e = 0.97 + Math.random() * 0.03; // sát viền
+  } else {
+    // Fill: bias về phía trong để trái tim đặc, tròn đầy
+    e = Math.pow(Math.random(), 1.35) * 0.96;
+  }
+  const j = outline ? 0.028 : 0.055;
+  const scale = 0.155;
+  hp[i*3]   = x0 * scale * e + (Math.random() - 0.5) * j;
+  hp[i*3+1] = (y0 + 1.2) * scale * e + (Math.random() - 0.5) * j;
+  // Z rất mỏng → nhìn phẳng, đầy đặn như video
+  hp[i*3+2] = (Math.random() - 0.5) * 0.38 * (0.25 + e * 0.75);
+
+  // Màu hồng thuần, bão hòa, không đẩy về trắng
+  let k;
+  if (outline) {
+    k = new THREE.Color('#ff0055').lerp(new THREE.Color('#ff4d94'), Math.random());
+  } else {
+    k = new THREE.Color('#ff1a6d').lerp(new THREE.Color('#ff6ba8'), Math.random() * 0.7 + 0.15);
+  }
+  // Giữ độ sáng vừa phải, tránh white-hot
+  k.multiplyScalar(0.75 + Math.random() * 0.35);
+  hc.set([k.r, k.g, k.b], i*3);
+  hph[i] = Math.random();
+  // Size hạt vừa phải, outline hơi to hơn
+  hs[i] = outline ? (0.13 + Math.random() * 0.08) : (0.09 + Math.random() * 0.11);
+}
+const hGeo = new THREE.BufferGeometry();
+hGeo.setAttribute('position', new THREE.BufferAttribute(hp,3));
+hGeo.setAttribute('color', new THREE.BufferAttribute(hc,3));
+hGeo.setAttribute('aPhase', new THREE.BufferAttribute(hph,1));
+hGeo.setAttribute('aSize', new THREE.BufferAttribute(hs,1));
+const uniforms = {uTime:{value:0}, uScale:{value:300}};
+const heartMat = new THREE.ShaderMaterial({
+  uniforms, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+  vertexShader:`attribute vec3 color; attribute float aPhase; attribute float aSize; uniform float uTime; uniform float uScale;
+    varying vec3 vC; varying float vT;
+    void main(){
+      vec3 p = position;
+      float w = uTime * 1.25 + aPhase * 6.2831;
+      // Rung nhẹ, không làm loãng hình dạng
+      p += vec3(sin(w), cos(w * 1.4), sin(w * 0.7)) * 0.011;
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      float tw = 0.78 + 0.28 * sin(uTime * 4.2 + aPhase * 36.0) + 0.08 * sin(uTime * 8.5 + aPhase * 18.0);
+      gl_PointSize = aSize * tw * uScale / -mv.z;
+      gl_Position = projectionMatrix * mv;
+      vC = color;
+      vT = tw;
+    }`,
+  fragmentShader:`varying vec3 vC; varying float vT;
+    void main(){
+      float d = length(gl_PointCoord - 0.5);
+      if(d > 0.5) discard;
+      // Falloff mềm, alpha không tạo viền cứng
+      float a = pow(1.0 - d * 2.0, 1.55) * (0.9 + vT * 0.18);
+      // Giữ màu hồng, không multiply quá mạnh thành trắng
+      gl_FragColor = vec4(vC * (0.95 + vT * 0.22), a);
+    }`
+});
+const heart = new THREE.Group(); heart.position.y = 4.5; scene.add(heart);
+heart.add(new THREE.Points(hGeo, heartMat));
+
+// tia sáng bay lên – mềm, hồng, không trắng
+const SPN = 900, spp = new Float32Array(SPN*3), spph = new Float32Array(SPN), spsz = new Float32Array(SPN);
+for(let i=0;i<SPN;i++){
+  const t = Math.random()*Math.PI*2, e = Math.pow(Math.random(), 0.7);
+  spp[i*3]   = 16 * Math.pow(Math.sin(t),3) * 0.155 * e;
+  spp[i*3+1] = (13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t)+1.2) * 0.155 * e;
+  spp[i*3+2] = (Math.random()-0.5)*0.55;
+  spph[i] = Math.random();
+  spsz[i] = 0.06 + Math.random()*0.1;
+}
+const spGeo = new THREE.BufferGeometry();
+spGeo.setAttribute('position', new THREE.BufferAttribute(spp,3));
+spGeo.setAttribute('aPhase', new THREE.BufferAttribute(spph,1));
+spGeo.setAttribute('aSize', new THREE.BufferAttribute(spsz,1));
+heart.add(new THREE.Points(spGeo, new THREE.ShaderMaterial({
+  uniforms, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+  vertexShader:`attribute float aPhase; attribute float aSize; uniform float uTime; uniform float uScale; varying float vA;
+    void main(){
+      float life = fract(uTime * 0.15 + aPhase);
+      vec3 p = position;
+      p.y += life * 4.5 + 0.6;
+      p.x += sin(uTime * 0.85 + aPhase * 26.0) * 0.32 * life;
+      p.z += cos(uTime * 0.7 + aPhase * 20.0) * 0.32 * life;
+      vec4 mv = modelViewMatrix * vec4(p, 1.0);
+      vA = (1.0 - life) * smoothstep(0.0, 0.1, life);
+      gl_PointSize = aSize * (1.1 - life * 0.65) * uScale / -mv.z;
+      gl_Position = projectionMatrix * mv;
+    }`,
+  fragmentShader:`varying float vA; void main(){
+      float d = length(gl_PointCoord - 0.5);
+      if(d > 0.5) discard;
+      // Hồng thuần, không trắng
+      gl_FragColor = vec4(vec3(1.0, 0.35, 0.55) * 1.2, pow(1.0 - d * 2.0, 1.7) * vA);
+    }`
+})));
+
+// quầng sáng phía sau – hồng, mềm, không trắng
+const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: dotTex,
+  color: 0xff1a5c,
+  transparent: true,
+  opacity: 0.48,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending
+}));
+halo.scale.set(12.5, 12.5, 1);
+halo.position.z = -0.4;
+heart.add(halo);
+
+// luồng sáng nối từ tim xuống hố đen
+const beam = new THREE.Mesh(
+  new THREE.CylinderGeometry(0.035, 0.32, 1.35, 16, 1, true),
+  new THREE.MeshBasicMaterial({
+    color: 0xff2a6d,
+    transparent: true,
+    opacity: 0.14,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide
+  })
+);
+beam.position.y = 0.78;
+scene.add(beam);
+
+/* Chữ chúc mừng nằm trên đĩa thiên hà + trái tim kỷ niệm */
+const ring = new THREE.Group(); scene.add(ring);
+const clickable = [];
+
+function textTexture(txt){
+  // Canvas động: chữ dài không bị cắt, font tự co vừa khung
+  const c = document.createElement('canvas');
+  const g = c.getContext('2d');
+  const maxW = 980;
+  let fontSize = 78;
+  g.font = `700 ${fontSize}px Montserrat, system-ui, sans-serif`;
+  while (g.measureText(txt).width > maxW && fontSize > 38) {
+    fontSize -= 3;
+    g.font = `700 ${fontSize}px Montserrat, system-ui, sans-serif`;
+  }
+  const textW = g.measureText(txt).width;
+  const pad = 70;
+  c.width = Math.ceil(Math.max(textW + pad * 2, 420));
+  c.height = 150;
+  // Sau khi đổi size canvas phải set lại font
+  g.font = `700 ${fontSize}px Montserrat, system-ui, sans-serif`;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.shadowColor = '#ff2a7a';
+  g.shadowBlur = 32;
+  g.fillStyle = '#ffe0ec';
+  const cx = c.width / 2, cy = 76;
+  g.fillText(txt, cx, cy);
+  g.shadowBlur = 14;
+  g.fillText(txt, cx, cy);
+  g.shadowBlur = 0;
+  g.fillText(txt, cx, cy);
+  const t = new THREE.CanvasTexture(c);
+  t.anisotropy = 4;
+  return t;
+}
+function heartTexture(){
+  const c = document.createElement('canvas'); c.width=c.height=128;
+  const g = c.getContext('2d'); g.translate(64,66); g.scale(3.1,3.1);
+  g.shadowColor='#ff3d8b'; g.shadowBlur=18; g.fillStyle='#ff4d94';
+  g.beginPath();
+  for(let t=0;t<=Math.PI*2;t+=.05){
+    const x=16*Math.pow(Math.sin(t),3)/16*8, y=-(13*Math.cos(t)-5*Math.cos(2*t)-2*Math.cos(3*t)-Math.cos(4*t))/16*8;
+    t===0?g.moveTo(x,y):g.lineTo(x,y);
+  }
+  g.fill(); return new THREE.CanvasTexture(c);
+}
+
+function buildOrbit(){
+  const n = CONFIG.wishes.length;
+  CONFIG.wishes.forEach((w,i)=>{
+    const a = i/n*Math.PI*2, r = 6.5 + (i%3)*3.2;
+    const tex = textTexture(w);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthWrite:false}));
+    // Scale theo đúng tỉ lệ canvas để chữ không bị méo / cắt
+    const aspect = tex.image.width / tex.image.height;
+    const hScale = 0.92;
+    sp.scale.set(aspect * hScale, hScale, 1);
+    sp.position.set(Math.cos(a)*r, 1.4+(i%2)*1.1, Math.sin(a)*r);
+    ring.add(sp);
+  });
+  const ht = heartTexture();
+  CONFIG.memories.forEach((mem,i)=>{
+    const a = i/CONFIG.memories.length*Math.PI*2 + .6, r = 7+ (i%2)*3.5;
+    const s = new THREE.Sprite(new THREE.SpriteMaterial({map:ht,transparent:true,depthWrite:false}));
+    s.scale.set(1.6,1.6,1); s.position.set(Math.cos(a)*r,1.2,Math.sin(a)*r);
+    s.userData = {mem, base:1.2, ph:i*1.7};
+    ring.add(s); clickable.push(s);
+  });
+}
+const fontsReady = (document.fonts && document.fonts.load) ?
+  Promise.race([document.fonts.load('600 40px Montserrat'), new Promise(r=>setTimeout(r,1500))]) : Promise.resolve();
+fontsReady.then(buildOrbit, buildOrbit);
+
+/* Điều khiển camera: kéo để xoay, cuộn/chụm để thu phóng */
+let az = 0.4, el = 1.05, dist = 60, distTarget = 26, started = false;
+const ptrs = new Map(); let moved = 0, pinch = 0;
+canvas.addEventListener('pointerdown', e=>{ canvas.setPointerCapture(e.pointerId); ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY}); moved = 0; pinch = 0; });
+canvas.addEventListener('pointermove', e=>{
+  const p = ptrs.get(e.pointerId); if(!p) return;
+  const dx = e.clientX-p.x, dy = e.clientY-p.y; p.x=e.clientX; p.y=e.clientY;
+  if(ptrs.size===2){
+    const [a,b] = [...ptrs.values()], d = Math.hypot(a.x-b.x,a.y-b.y);
+    if(pinch) distTarget = clamp(distTarget*pinch/d, 9, 45);
+    pinch = d; moved = 99;
+  } else { az -= dx*.006; el = clamp(el - dy*.005, .25, 1.5); moved += Math.abs(dx)+Math.abs(dy); }
+});
+const up = e=>{
+  const had = ptrs.delete(e.pointerId); pinch = 0;
+  if(had && moved<6 && started) pick(e.clientX,e.clientY);
+};
+canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', e=>{ptrs.delete(e.pointerId);pinch=0;});
+canvas.addEventListener('wheel', e=>{ e.preventDefault(); distTarget = clamp(distTarget*(1+e.deltaY*.001), 9, 45); }, {passive:false});
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2();
+function pick(x,y){
+  mouse.set(x/innerWidth*2-1, -(y/innerHeight)*2+1);
+  ray.setFromCamera(mouse,camera);
+  // vùng chạm rộng hơn hình vẽ: kiểm tra khoảng cách trên màn hình
+  let best=null, bd=60;
+  clickable.forEach(s=>{
+    const p = s.getWorldPosition(new THREE.Vector3()).project(camera);
+    if(p.z>1) return;
+    const d = Math.hypot((p.x+1)/2*innerWidth-x, (1-p.y)/2*innerHeight-y);
+    if(d<bd){bd=d;best=s;}
+  });
+  if(best) openMemory(best.userData.mem);
+}
+function openMemory(m){
+  $('m-title').textContent = m.title; $('m-text').textContent = m.text;
+  const l = $('memory'); l.hidden = false; requestAnimationFrame(()=>l.classList.remove('off'));
+  $('back').focus();
+}
+function closeMemory(){
+  const l = $('memory'); l.classList.add('off'); setTimeout(()=>{l.hidden=true},900);
+}
+$('back').onclick = closeMemory;
+addEventListener('keydown', e=>{ if(e.key==='Escape') closeMemory(); });
+
+$('enter').onclick = ()=>{
+  $('intro').classList.add('off'); started = true;
+  setTimeout(()=>{ $('intro').hidden = true; $('hint').style.opacity = 1; },950);
+};
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clock = new THREE.Clock();
+function frame(){
+  const t = clock.getElapsedTime();
+  if(started){ distTarget = Math.min(distTarget, 45); } else { distTarget = 32; }
+  dist += (distTarget-dist)*(started?.035:.01);
+  if(!started && !reduce) az += .0015;
+  camera.position.set(Math.sin(az)*Math.cos(el)*dist, Math.sin(el)*dist, Math.cos(az)*Math.cos(el)*dist);
+  camera.lookAt(0,2.2,0);
+  heart.rotation.y = az; // trái tim luôn quay mặt về phía người xem
+  if(!reduce){
+    galaxy.rotation.y = t*.035;
+    ring.rotation.y = t*.035;
+    // Nhịp đập mềm, giữ hình trái tim đầy đặn
+    const bt = Math.abs(Math.sin(t * 2.2));
+    const s = 1 + 0.09 * Math.pow(bt, 10) + 0.025 * Math.sin(t * 2.2);
+    heart.scale.setScalar(s * 1.32);
+    halo.material.opacity = 0.38 + 0.32 * Math.pow(bt, 10) + 0.08 * Math.sin(t * 2.2);
+    clickable.forEach(c=>{ c.position.y = c.userData.base + Math.sin(t*1.5+c.userData.ph)*.25; c.scale.setScalar(1.6+.25*Math.sin(t*3+c.userData.ph)); });
+  }
+  uniforms.uTime.value = t; uniforms.uScale.value = renderer.domElement.height*.5;
+  renderer.render(scene,camera);
+  requestAnimationFrame(frame);
+}
+frame();
+</script>
+
+</body></html>
